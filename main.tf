@@ -14,7 +14,7 @@ resource "aws_vpc" "some_custom_vpc" {
 }
 
 resource "random_shuffle" "az" {
-  input        = ["${var.region}a", "${var.region}b", "${var.region}c", "${var.region}d", "${var.region}e"]
+  input        = ["${var.region}a", "${var.region}b", "${var.region}c"]
   result_count = 1
 }
 
@@ -120,20 +120,7 @@ resource "random_string" "s3name" {
   lower = true
 }
 
-resource "aws_s3_bucket_acl" "s3_bucket_acl" {
-  bucket = aws_s3_bucket.s3buckit.id
-  acl    = "private"
-  depends_on = [aws_s3_bucket_ownership_controls.s3_bucket_acl_ownership]
-}
-
-resource "aws_s3_bucket_ownership_controls" "s3_bucket_acl_ownership" {
-  bucket = aws_s3_bucket.s3buckit.id
-  rule {
-    object_ownership = "ObjectWriter"
-  }
-}
-
-resource "aws_s3_bucket" "s3buckit" {
+resource "aws_s3_bucket" "s3_kube_bucket" {
   bucket = "k8s-${random_string.s3name.result}"
   force_destroy = true
  depends_on = [
@@ -141,6 +128,18 @@ resource "aws_s3_bucket" "s3buckit" {
   ]
 }
 
+resource "aws_s3_bucket_ownership_controls" "s3_bucket_acl_ownership" {
+  bucket = aws_s3_bucket.s3_kube_bucket.id
+  rule {
+    object_ownership = "ObjectWriter"
+  }
+}
+
+resource "aws_s3_bucket_acl" "s3_bucket_acl" {
+  bucket = aws_s3_bucket.s3_kube_bucket.id
+  acl    = "private"
+  depends_on = [aws_s3_bucket_ownership_controls.s3_bucket_acl_ownership]
+}
 
 resource "aws_instance" "ec2_instance_msr" {
     ami = var.ami_id
@@ -157,51 +156,51 @@ resource "aws_instance" "ec2_instance_msr" {
     tags = {
         Name = "k8s_msr_1"
     }
-    user_data_base64 = base64encode("${templatefile("scripts/install_k8s_msr.sh", {
+    user_data_base64 = base64encode("${templatefile("scripts/install_k8s_master.sh", {
 
     access_key = var.access_key
     private_key = var.secret_key
     region = var.region
-    s3buckit_name = "k8s-${random_string.s3name.result}"
+    s3bucket_name = "${aws_s3_bucket.s3_kube_bucket.id}"
     })}")
 
     depends_on = [
-    aws_s3_bucket.s3buckit,
+    aws_s3_bucket.s3_kube_bucket,
     random_string.s3name
   ]
 
     
 } 
 
-resource "aws_instance" "ec2_instance_wrk" {
-    ami = var.ami_id
-    count = var.number_of_worker
-    subnet_id = aws_subnet.some_public_subnet.id
-    instance_type = var.instance_type
-    key_name = var.ami_key_pair_name
-    associate_public_ip_address = true
-    security_groups = [ aws_security_group.k8s_sg.id ]
-    root_block_device {
-    volume_type = "gp2"
-    volume_size = "16"
-    delete_on_termination = true
-    }
-    tags = {
-        Name = "k8s_wrk_${count.index + 1}"
-    }
-    user_data_base64 = base64encode("${templatefile("scripts/install_k8s_wrk.sh", {
+# resource "aws_instance" "ec2_instance_wrk" {
+#     ami = var.ami_id
+#     count = var.number_of_worker
+#     subnet_id = aws_subnet.some_public_subnet.id
+#     instance_type = var.instance_type
+#     key_name = var.ami_key_pair_name
+#     associate_public_ip_address = true
+#     security_groups = [ aws_security_group.k8s_sg.id ]
+#     root_block_device {
+#     volume_type = "gp2"
+#     volume_size = "16"
+#     delete_on_termination = true
+#     }
+#     tags = {
+#         Name = "k8s_wrk_${count.index + 1}"
+#     }
+#     # user_data_base64 = base64encode("${templatefile("scripts/install_k8s_wrk.sh", {
 
-    access_key = var.access_key
-    private_key = var.secret_key
-    region = var.region
-    s3buckit_name = "k8s-${random_string.s3name.result}"
-    worker_number = "${count.index + 1}"
+#     # access_key = var.access_key
+#     # private_key = var.secret_key
+#     # region = var.region
+#     # s3buckit_name = "k8s-${random_string.s3name.result}"
+#     # worker_number = "${count.index + 1}"
 
-    })}")
+#     # })}")
   
-    depends_on = [
-      aws_s3_bucket.s3buckit,
-      random_string.s3name,
-      aws_instance.ec2_instance_msr
-  ]
-} 
+#     depends_on = [
+#       aws_s3_bucket.s3_kube_bucket,
+#       random_string.s3name,
+#       aws_instance.ec2_instance_msr
+#   ]
+# } 

@@ -3,10 +3,10 @@ output "instance_msr_public_ip" {
   value       = aws_instance.ec2_instance_msr.public_ip
 }
 
-output "instance_wrks_public_ip" {
-  description = "Public address IP of worker"
-  value       = aws_instance.ec2_instance_wrk.*.public_ip
-}
+# output "instance_wrks_public_ip" {
+#   description = "Public address IP of worker"
+#   value       = aws_instance.ec2_instance_wrk.*.public_ip
+# }
 
 # output "instance_msr_privte_ip" {
 #   description = "Private IP address of master"

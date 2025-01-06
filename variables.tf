@@ -18,12 +18,12 @@ variable "number_of_worker" {
 
 variable "region" {
         description = "The region zone on AWS"
-        default = "us-east-1" #The zone I selected is us-east-1, if you change it make sure to check if ami_id below is correct.
+        default = "eu-north-1" #The zone I selected is us-east-1, if you change it make sure to check if ami_id below is correct.
 }
 
 variable "ami_id" {
         description = "The AMI to use"
-        default = "ami-0a6b2839d44d781b2" #Ubuntu 20.04
+        default = "ami-075449515af5df0d1" #Ubuntu 20.04
 }
 
 variable "instance_type" {

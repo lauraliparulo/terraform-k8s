@@ -2,8 +2,8 @@
 
 ######### ** FOR WORKER NODE ** #########
 
-hostname k8s-wrk-${worker_number}
-echo "k8s-wrk-${worker_number}" > /etc/hostname
+hostname k8s-worker-${worker_number}
+echo "k8s-worker-${worker_number}" > /etc/hostname
 
 export AWS_ACCESS_KEY_ID=${access_key}
 export AWS_SECRET_ACCESS_KEY=${private_key}
@@ -38,8 +38,8 @@ apt install awscli -y
 # echo "deb https://packages.cloud.google.com/apt kubernetes-xenial main" > /etc/apt/sources.list.d/kurbenetes.list
 
 mkdir -p /etc/apt/keyrings/
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
 
 
 #Turn off swap
@@ -51,7 +51,7 @@ ufw disable
 #Installing Kubernetes tools
 apt update
 # apt install kubelet kubeadm kubectl -y
-apt install -y kubeadm=1.28.1-1.1 kubelet=1.28.1-1.1 kubectl=1.28.1-1.1
+apt install -y kubeadm=1.30.3-1.1 kubelet=1.30.3-1.1 kubectl=1.30.3-1.1
 
 
 #next line is getting EC2 instance IP, for kubeadm to initiate cluster
@@ -74,6 +74,6 @@ sysctl --system
 # to insure the join command start when the installion of master node is done.
 sleep 1m
 
-aws s3 cp s3://${s3buckit_name}/join_command.sh /tmp/.
+aws s3 cp s3://${s3bucket_name}/join_command.sh /tmp/.
 chmod +x /tmp/join_command.sh
 bash /tmp/join_command.sh
