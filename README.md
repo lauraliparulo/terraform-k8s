@@ -8,7 +8,7 @@ Inspired by
 - https://daily.dev/blog/kubernetes-cni-comparison-flannel-vs-calico-vs-canal
 
 
-## ---- Create an RSA key pair
+## Create an RSA key pair
 I have created the key pair for the instance directly on the console and downloaded the private key .pem file.
 You can create the key pair under the section "EC2 > Network & Security > Key Pairs". Choose the "RSA" type and ".pem" format for SSH.
 
@@ -19,10 +19,10 @@ And then :
 > ssh -i "kube-private-key.pem" ubuntu@ec2-13-60-29-125.eu-north-1.compute.amazonaws.com
 
 
-## --- Run terraform commands with local sensitive variables.
+## -Run terraform commands with local sensitive variables.
 
 As we are placing the credentials in the .tfvars file, you need to run your terraform command with the options "-var-file", for example:
 > terraform plan -var-file="variables.tfvars"
 
 
-# -----
+# WIP - coming soon!
