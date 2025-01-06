@@ -3,3 +3,4 @@
 terraform.tfstate.backup
 terraform.tfstate
 variables.tfvars
+variables_aws.tfvars
