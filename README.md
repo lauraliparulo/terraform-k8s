@@ -6,6 +6,7 @@ Inspired by
 - https://github.com/Ahmad-Faqehi/Terraform-Bulding-K8S
 - https://pswalia2u.medium.com/deploying-kubernetes-cluster-2ef2fbdd233a#:~:text=overlay%20%E2%80%94%20The%20overlay%20module%20provides,for%20Kubernetes%20networking%20and%20policy.
 - https://daily.dev/blog/kubernetes-cni-comparison-flannel-vs-calico-vs-canal
+- https://github.com/sandervanvugt/cka/blob/master/setup-container.sh
 
 
 ## Create an RSA key pair
@@ -28,6 +29,8 @@ As we are placing the credentials in the .tfvars file, you need to run your terr
 # WIP - coming soon!
 Make sure your IAM user has the necessary policies. For example "AmazonSSMManagedInstanceCore" is necessary to run the scripts on the EC2 instance
 
+
+You can add a Role at the Account level 
 
 AWSQuickSetupSSMManageResourcesExecutionPolicy
 AmazonSSMManagedInstanceCore

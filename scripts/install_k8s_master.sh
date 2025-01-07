@@ -6,25 +6,18 @@ hostname k8s-master-1
 echo "k8s-master-1" > /etc/hostname
 
 export AWS_ACCESS_KEY_ID=${access_key}
-export AWS_SECRET_ACCESS_KEY=${private_key}
+export AWS_SECRET_ACCESS_KEY=${secret_key}
 export AWS_DEFAULT_REGION=${region}
-
-
-#Turn off swap
-#If you run nodes with (traditional to-disk) swap, you lose a lot of the isolation properties that make sharing machines viable.
-# You have no predictability around performance or latency or IO
-# To avoid Kubernetes data such as contents of Secret object being written to tmpfs...
-#  Swap support Version >= 1.28 https://kubernetes.io/blog/2023/08/24/swap-linux-beta/
-# see https://kubernetes.io/docs/concepts/architecture/nodes/#swap-memory
-swapoff -a
-sudo sed -i '/swap/d' /etc/fstab
-mount -a
-ufw disable
 
 #Update packages
 apt update
-# Install awscli (optional)
-apt install awscli -y  
+# Install awscli - necessary to export join script to S3
+sudo snap install aws-cli --classic
+# Configure credentials for aws-cli
+
+
+
+# add additional pacakges for https and curl, etc.
 apt install apt-transport-https ca-certificates curl software-properties-common -y
 
 # --------q---- INSTALL containerd!!!  - without Docker!
@@ -41,14 +34,8 @@ echo \
   $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
   tee /etc/apt/sources.list.d/docker.list > /dev/null
 
+# you can either install docker completely or just a runtime like CRI-O or containerd (bundled with docker)
 apt update
-#apt-cache policy docker-ce
-#apt install docker-ce -y
-#install containerd
-#apt install aufs-tools
-#apt install linux-image-extra-$(uname -r)
-#modprobe aufs
-#apt install install containerd.io -y
 apt install docker.io -y
 
 # Configure containerd to use systemd as the cgroup driver to use systemd cgroups.
@@ -65,7 +52,7 @@ overlay
 br_netfilter
 EOF
 
-# Update kernel network settings to allow traffic to be forwarded for both IP4 and IP6.
+# Update kernel network settings to allow traffic to be forwarded for both IP4 and IP6. Required sysctl params, these persist across reboots.
 tee /etc/sysctl.d/kubernetes.conf<<EOF
 net.bridge.bridge-nf-call-ip6tables = 1
 net.bridge.bridge-nf-call-iptables = 1
@@ -97,8 +84,17 @@ apt update
 # Install the packages
 apt install -y kubeadm=1.30.3-1.1 kubelet=1.30.3-1.1 kubectl=1.30.3-1.1
 # lock the version 
-#apt-mark hold kubelet kubeadm kubectl
-
+apt-mark hold kubelet kubeadm kubectl
+#Turn off swap
+#If you run nodes with (traditional to-disk) swap, you lose a lot of the isolation properties that make sharing machines viable.
+# You have no predictability around performance or latency or IO
+# To avoid Kubernetes data such as contents of Secret object being written to tmpfs...
+#  Swap support Version >= 1.28 https://kubernetes.io/blog/2023/08/24/swap-linux-beta/
+# see https://kubernetes.io/docs/concepts/architecture/nodes/#swap-memory
+swapoff -a
+sudo sed -i '/swap/d' /etc/fstab
+mount -a
+ufw disable
 
 # ----------------------
 # enable kubelet
@@ -122,7 +118,13 @@ tar zxvf crictl-$CRICTL_VERSION-linux-$CRICTL_ARCH.tar.gz -C /usr/local/bin
 rm -f crictl-$CRICTL_VERSION-linux-$CRICTL_ARCH.tar.gz
 # verify crictl is installed
 crictl version
+# in case you need to set a different runtime endpoint:
+# crictl config --set runtime-endpoint=unix:///run/containerd/containerd.sock
 
+# install helm
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+chmod 700 get_helm.sh
+bash get_helm.sh
 
 # -------------------     Kubernetes cluster init ------------------------------------------------------------
 #You can replace 172.16.0.0/16 with your desired pod network
@@ -130,19 +132,11 @@ kubeadm init --apiserver-advertise-address=$ipaddr --pod-network-cidr=192.168.0.
 # kubeadm init --apiserver-advertise-address=$ipaddr --apiserver-cert-extra-sans=$pubip > /tmp/restult.out
 cat /tmp/result.out
 
-#create the join command from output
-tail -2 /tmp/result.out > /tmp/join_command.sh;
-aws s3 cp /tmp/join_command.sh s3://${s3bucket_name};
-
 #this adds .kube/config for root account, run same for ubuntu user, if you need it
 mkdir -p /root/.kube;
 cp -i /etc/kubernetes/admin.conf /root/.kube/config;
 cp -i /etc/kubernetes/admin.conf /tmp/admin.conf;
 chmod 755 /tmp/admin.conf
-
-
-#to copy kube config file to s3
-# aws s3 cp /etc/kubernetes/admin.conf s3://${s3bucket_name}
 
 # Export the kubeconfig file so the root user can access the cluster.
 export KUBECONFIG=/etc/kubernetes/admin.conf
@@ -174,12 +168,7 @@ export KUBECONFIG=/etc/kubernetes/admin.conf
 # cilium status --wait
 # # exit the shell
 # exit
-
-# install helm
-curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
-chmod 700 get_helm.sh
-bash get_helm.sh
-
+#--------------------------------------------------------------------------------------------------------------------------
 # FLANNEL
 # Setup flannel
 kubectl create --kubeconfig /root/.kube/config ns kube-flannel
@@ -187,14 +176,13 @@ kubectl label --overwrite ns kube-flannel pod-security.kubernetes.io/enforce=pri
 helm repo add flannel https://flannel-io.github.io/flannel/
 helm install flannel --set podCidr="192.168.0.0/16" --namespace kube-flannel flannel/flannel
 
-#Uncomment next line if you want calico Cluster Pod Network
+# CALICO Cluster Pod Network
 # curl -o /root/calico.yaml https://raw.githubusercontent.com/projectcalico/calico/v3.27.2/manifests/tigera-operator.yaml
-#sleep 5
+# sleep 5
 # kubectl --kubeconfig /root/.kube/config apply -f /root/calico.yaml
 # systemctl restart kubelet
 
-
-
+# --------------------------------------------------------------------------------------
 # Configure kubectl to connect to the cluster.
 # Add kube config to ubuntu user.
 mkdir -p /home/ubuntu/.kube;
@@ -210,16 +198,14 @@ echo "source <(kubectl completion bash)" >> /home/ubuntu/.bashrc # add autocompl
 echo "source <(kubectl completion bash)" >> /root/.bashrc # add autocomplete permanently to your bash shell.
 
 # add the alias for kubectl
-alias k=kubectl
-echo "alias k=kubectl" >> /home/ubuntu/.bashrc
-echo "alias k=kubectl" >> /root/.bashrc
-
-# echo "complete -o default -F __start_kubectl k" >> /home/ubuntu/.bashrc
-# echo "complete -o default -F __start_kubectl k" >> /root/.bashrc
-complete -o default -F __start_kubectl k
+echo "alias k='kubectl'" >> /home/ubuntu/.bashrc
+echo "alias k='kubectl'" >> /root/.bashrc
 
 # reload the bash profile
 source ~/.bashrc
+# echo "complete -o default -F __start_kubectl k" >> /home/ubuntu/.bashrc
+# echo "complete -o default -F __start_kubectl k" >> /root/.bashrc
+# complete -o default -F __start_kubectl k
 
 # install jq for formatting output and strace for debugging
 sudo apt install install jq strace -y
@@ -234,7 +220,11 @@ set expandtab
 set shiftwidth=2
 EOF
 
+#create the join command from output
+tail -2 /tmp/result.out > /tmp/join_command.sh;
 
+#to copy kube config file to s3
+aws s3 cp /tmp/join_command.sh s3://${s3_bucket_name};
 
 # ---- Get ready to add nodes!
 # Verify you can connect to the cluster
