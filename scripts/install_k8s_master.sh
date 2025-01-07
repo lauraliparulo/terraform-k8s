@@ -24,13 +24,13 @@ ufw disable
 #Update packages
 apt update
 # Install awscli (optional)
-# apt install awscli -y  
-
+apt install awscli -y  
+apt install apt-transport-https ca-certificates curl software-properties-common -y
 
 # --------q---- INSTALL containerd!!!  - without Docker!
 # install the container runtime only
 # add docker gpg and repository
-#apt install apt-transport-https ca-certificates curl software-properties-common -y
+
 
 mkdir -p /etc/apt/keyrings/
 install -m 0755 -d /etc/apt/keyrings
@@ -175,6 +175,11 @@ export KUBECONFIG=/etc/kubernetes/admin.conf
 # # exit the shell
 # exit
 
+# install helm
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+chmod 700 get_helm.sh
+bash get_helm.sh
+
 # FLANNEL
 # Setup flannel
 kubectl create --kubeconfig /root/.kube/config ns kube-flannel
@@ -229,10 +234,7 @@ set expandtab
 set shiftwidth=2
 EOF
 
-# install helm
-curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
-chmod 700 get_helm.sh
-bash get_helm.sh
+
 
 # ---- Get ready to add nodes!
 # Verify you can connect to the cluster

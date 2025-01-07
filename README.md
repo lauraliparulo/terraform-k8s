@@ -26,3 +26,13 @@ As we are placing the credentials in the .tfvars file, you need to run your terr
 
 
 # WIP - coming soon!
+Make sure your IAM user has the necessary policies. For example "AmazonSSMManagedInstanceCore" is necessary to run the scripts on the EC2 instance
+
+
+AWSQuickSetupSSMManageResourcesExecutionPolicy
+AmazonSSMManagedInstanceCore
+
+systemctl status snap.amazon-ssm-agent.amazon-ssm-agent.service 
+
+## debug cluster
+crictl logs -f  $(crictl ps | grep etcd | awk '{print $1}')
