@@ -3,6 +3,11 @@ output "instance_master_public_ip" {
   value       = aws_instance.ec2_instance_master.public_ip
 }
 
+output "instance_master_instance_id" {
+  description = "Public address IP of master"
+  value       = aws_instance.ec2_instance_master.id
+}
+
 # output "instance_wrks_public_ip" {
 #   description = "Public address IP of worker"
 #   value       = aws_instance.ec2_instance_wrk.*.public_ip

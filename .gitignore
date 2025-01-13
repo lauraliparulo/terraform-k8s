@@ -4,3 +4,5 @@ terraform.tfstate.backup
 terraform.tfstate
 variables.tfvars
 variables_aws.tfvars
+terraform.tfstate.lock.info
+.terraform.tfstate.lock.info

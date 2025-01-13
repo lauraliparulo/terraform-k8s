@@ -26,16 +26,23 @@ As we are placing the credentials in the .tfvars file, you need to run your terr
 > terraform plan -var-file="variables.tfvars"
 
 
-# WIP - coming soon!
-Make sure your IAM user has the necessary policies. For example "AmazonSSMManagedInstanceCore" is necessary to run the scripts on the EC2 instance
-
-
-You can add a Role at the Account level 
-
-AWSQuickSetupSSMManageResourcesExecutionPolicy
-AmazonSSMManagedInstanceCore
-
-systemctl status snap.amazon-ssm-agent.amazon-ssm-agent.service 
+# check logs
+tail -f /var/log/syslog
 
 ## debug cluster
 crictl logs -f  $(crictl ps | grep etcd | awk '{print $1}')
+
+
+# Nrtwork policy for Flannel
+https://dev.to/jmarhee/network-policies-with-canal-and-flannel-on-k3s-11oe
+
+Or try Calico! Or Weave!
+
+
+# install SSM manager plugin
+
+https://docs.aws.amazon.com/systems-manager/latest/userguide/install-plugin-debian-and-ubuntu.html
+
+
+ 
+check logs /var/log/amazon/ssm/amazon-ssm-agent.log

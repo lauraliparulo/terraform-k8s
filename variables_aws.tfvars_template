@@ -3,5 +3,5 @@ secret_key = "<your-secret-key>"
 #cidr_block         = "10.0.0.0/16"
 instance_type      = "t3.2xlarge"
 #availability_zones = ["eu-north-1a", "eu-north-1b","eu-north-1c"]
-ami_key_pair_name = "kube-key2"
+ami_key_pair_name = "yourkey"
 

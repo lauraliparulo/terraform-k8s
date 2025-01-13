@@ -7,11 +7,13 @@ provider "aws" {
 
 resource "aws_vpc" "kube_vpc" {
   cidr_block = "10.0.0.0/16"
-
+  enable_dns_hostnames = true 
   tags = {
     Name = "K8S VPC"
   }
 }
+
+
 
 resource "random_shuffle" "az" {
   input        = ["${var.region}a", "${var.region}b", "${var.region}c"]
@@ -66,6 +68,13 @@ resource "aws_security_group" "kube_security_group" {
   ingress {
     from_port   = 80
     to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 8080
+    to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -141,6 +150,32 @@ resource "aws_s3_bucket_acl" "s3_bucket_acl" {
   depends_on = [aws_s3_bucket_ownership_controls.s3_bucket_acl_ownership]
 }
 
+resource "null_resource" "update_nginx_manifest_file_to_s3" {
+    provisioner "local-exec" {
+        command     = "aws s3 cp nginx.yaml s3://${aws_s3_bucket.s3_kube_bucket.id}"
+    }
+}
+
+resource "aws_iam_role" "ssm_ec2_role1" {
+  name = "ssm_ec2_role"
+  assume_role_policy = file("assume_role_policy.json")
+}
+
+resource "aws_iam_role_policy_attachment" "ssm_role_attachment" {
+  role       = aws_iam_role.ssm_ec2_role1.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
+}
+
+resource "aws_iam_role_policy_attachment" "ssm_role_attachment2" {
+  role       = aws_iam_role.ssm_ec2_role1.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMFullAccess"
+}
+
+resource "aws_iam_instance_profile" "ssm_ec2_role_profile" {
+  name = "ssm_ec2"
+  role = aws_iam_role.ssm_ec2_role1.name
+}
+
 resource "aws_instance" "ec2_instance_master" {
   ami = var.ami_id
   subnet_id = aws_subnet.kube_public_subnet.id
@@ -148,6 +183,7 @@ resource "aws_instance" "ec2_instance_master" {
   key_name = var.ami_key_pair_name
   associate_public_ip_address = true
   security_groups = [ aws_security_group.kube_security_group.id ]
+  iam_instance_profile = aws_iam_instance_profile.ssm_ec2_role_profile.name
   root_block_device {
     volume_type = "gp2"
     volume_size = "16"
@@ -170,35 +206,35 @@ resource "aws_instance" "ec2_instance_master" {
   
 } 
 
-# resource "aws_instance" "ec2_instance_worker" {
-#     ami = var.ami_id
-#     count = var.number_of_worker
-#     subnet_id = aws_subnet.kube_public_subnet.id
-#     instance_type = var.instance_type
-#     key_name = var.ami_key_pair_name
-#     associate_public_ip_address = true
-#     security_groups = [ aws_security_group.kube_security_group.id ]
-#     root_block_device {
-#     volume_type = "gp2"
-#     volume_size = "16"
-#     delete_on_termination = true
-#     }
-#     tags = {
-#         Name = "k8s_worker_${count.index + 1}"
-#     }
-#     # user_data_base64 = base64encode("${templatefile("scripts/install_k8s_worker.sh", {
+resource "aws_instance" "ec2_instance_worker" {
+    ami = var.ami_id
+    count = var.number_of_worker
+    subnet_id = aws_subnet.kube_public_subnet.id
+    instance_type = var.instance_type
+    key_name = var.ami_key_pair_name
+    associate_public_ip_address = true
+    security_groups = [ aws_security_group.kube_security_group.id ]
+    root_block_device {
+      volume_type = "gp2"
+      volume_size = "16"
+      delete_on_termination = true
+    }
+    tags = {
+        Name = "k8s_worker_${count.index + 1}"
+    }
+    user_data_base64 = base64encode("${templatefile("scripts/install_k8s_worker.sh", {
 
-#     # access_key = var.access_key
-#     # private_key = var.secret_key
-#     # region = var.region
-#     # s3buckit_name = "k8s-${random_string.s3name.result}"
-#     # worker_number = "${count.index + 1}"
+      access_key = "${var.access_key}"
+      secret_key = "${var.secret_key}"
+      region = "${var.region}"
+      s3_bucket_name = "${aws_s3_bucket.s3_kube_bucket.id}"
+      worker_number = "${count.index + 1}"
 
-#     # })}")
+    })}")
   
-#     depends_on = [
-#       aws_s3_bucket.s3_kube_bucket,
-#       random_string.s3name,
-#       aws_instance.ec2_instance_master
-#   ]
-# } 
+    depends_on = [
+      aws_s3_bucket.s3_kube_bucket,
+      random_string.s3name,
+      aws_instance.ec2_instance_master
+  ]
+} 

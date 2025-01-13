@@ -6,15 +6,18 @@ hostname k8s-worker-${worker_number}
 echo "k8s-worker-${worker_number}" > /etc/hostname
 
 export AWS_ACCESS_KEY_ID=${access_key}
-export AWS_SECRET_ACCESS_KEY=${private_key}
+export AWS_SECRET_ACCESS_KEY=${secret_key}
 export AWS_DEFAULT_REGION=${region}
 
 #Update packages
 apt update
 # Install awscli (optional)
-apt install awscli -y  
+sudo snap install aws-cli --classic
 apt install apt-transport-https ca-certificates curl software-properties-common -y
 
+# --------q---- INSTALL containerd!!!  - without Docker!
+# install the container runtime only
+# add docker gpg and repository
 mkdir -p /etc/apt/keyrings/
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
@@ -97,13 +100,13 @@ export ipaddr=`ip address|grep eth0|grep inet|awk -F ' ' '{print $2}' |awk -F '/
 
 
 # the kubeadm init won't work entel remove the containerd config and restart it.
-rm /etc/containerd/config.toml
+#rm /etc/containerd/config.toml
 systemctl restart containerd
 
 sysctl --system
 
 # to insure the join command start when the installion of master node is done.
-sleep 1m
+sleep 2m
 
 aws s3 cp s3://${s3_bucket_name}/join_command.sh /tmp/.
 chmod +x /tmp/join_command.sh

@@ -13,18 +13,12 @@ export AWS_DEFAULT_REGION=${region}
 apt update
 # Install awscli - necessary to export join script to S3
 sudo snap install aws-cli --classic
-# Configure credentials for aws-cli
-
-
-
 # add additional pacakges for https and curl, etc.
 apt install apt-transport-https ca-certificates curl software-properties-common -y
 
 # --------q---- INSTALL containerd!!!  - without Docker!
 # install the container runtime only
 # add docker gpg and repository
-
-
 mkdir -p /etc/apt/keyrings/
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
@@ -127,7 +121,10 @@ chmod 700 get_helm.sh
 bash get_helm.sh
 
 # -------------------     Kubernetes cluster init ------------------------------------------------------------
-#You can replace 172.16.0.0/16 with your desired pod network
+#You can replace 172.16.0.0/16 with your desired pod networ
+# apiserver-advertise-address - the IP address on which the API server is listening
+# pod-network-cidr - sets the CIDR used fo the pod network
+# 
 kubeadm init --apiserver-advertise-address=$ipaddr --pod-network-cidr=192.168.0.0/16 --apiserver-cert-extra-sans=$pubip > /tmp/result.out
 # kubeadm init --apiserver-advertise-address=$ipaddr --apiserver-cert-extra-sans=$pubip > /tmp/restult.out
 cat /tmp/result.out
@@ -138,6 +135,7 @@ cp -i /etc/kubernetes/admin.conf /root/.kube/config;
 cp -i /etc/kubernetes/admin.conf /tmp/admin.conf;
 chmod 755 /tmp/admin.conf
 
+--- end check optional ----------------
 # Export the kubeconfig file so the root user can access the cluster.
 export KUBECONFIG=/etc/kubernetes/admin.conf
 #export KUBECONFIG=/root/.kube/config
@@ -145,32 +143,10 @@ export KUBECONFIG=/etc/kubernetes/admin.conf
 # -------------------  CNI plugin installation -------------------------------------
 # Kubernetes (version 1.3 through to the latest 1.32, and likely onwards) lets you use Container Network Interface (CNI) plugins for cluster networking.
 # you can use Cilium, flannel, calico, etc.
-
-# # CILIUM
-# export CILIUM_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/cilium-cli/main/stable.txt)
-# export CILIUM_ARCH=$(dpkg --print-architecture)
-# # Download the Cilium CLI binary and its sha256sum
-# curl -L --fail --remote-name-all https://github.com/cilium/cilium-cli/releases/download/$CILIUM_VERSION/cilium-linux-$CILIUM_ARCH.tar.gz{,.sha256sum}
-
-# # Verify sha256sum
-# sha256sum --check cilium-linux-$CILIUM_ARCH.tar.gz.sha256sum
-
-# # Move binary to correct location and remove tarball
-# tar xzvf cilium-linux-$CILIUM_ARCH.tar.gz -C /usr/local/bin 
-# rm cilium-linux-$CILIUM_ARCH.tar.gz{,.sha256sum}
-
-# # verify cilium is installed
-# cilium version --client
-
-# # install network plugin
-# cilium install
-# # Wait for the CNI plugin to be installed
-# cilium status --wait
-# # exit the shell
-# exit
 #--------------------------------------------------------------------------------------------------------------------------
 # FLANNEL
 # Setup flannel
+kubectl create ns kube-flannel
 kubectl create --kubeconfig /root/.kube/config ns kube-flannel
 kubectl label --overwrite ns kube-flannel pod-security.kubernetes.io/enforce=privileged
 helm repo add flannel https://flannel-io.github.io/flannel/
@@ -229,7 +205,7 @@ aws s3 cp /tmp/join_command.sh s3://${s3_bucket_name};
 # ---- Get ready to add nodes!
 # Verify you can connect to the cluster
 # If the node is listed as  "Ready", it means the CNI plugin is running and the control node is ready to accept workloads.
-kubectl get nodes
+#kubectl get nodes
 
 # print the join command
-kubeadm token create --print-join-command
+#kubeadm token create --print-join-command
