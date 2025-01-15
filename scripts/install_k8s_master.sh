@@ -146,18 +146,31 @@ export KUBECONFIG=/etc/kubernetes/admin.conf
 #--------------------------------------------------------------------------------------------------------------------------
 # FLANNEL
 # Setup flannel
-kubectl create ns kube-flannel
-kubectl create --kubeconfig /root/.kube/config ns kube-flannel
-kubectl label --overwrite ns kube-flannel pod-security.kubernetes.io/enforce=privileged
-helm repo add flannel https://flannel-io.github.io/flannel/
-helm install flannel --set podCidr="192.168.0.0/16" --namespace kube-flannel flannel/flannel
+# kubectl create ns kube-flannel
+# kubectl create --kubeconfig /root/.kube/config ns kube-flannel
+# kubectl label --overwrite ns kube-flannel pod-security.kubernetes.io/enforce=privileged
+# helm repo add flannel https://flannel-io.github.io/flannel/
+# helm install flannel --set podCidr="192.168.0.0/16" --namespace kube-flannel flannel/flannel
 
-# CALICO Cluster Pod Network
-# curl -o /root/calico.yaml https://raw.githubusercontent.com/projectcalico/calico/v3.27.2/manifests/tigera-operator.yaml
-# sleep 5
-# kubectl --kubeconfig /root/.kube/config apply -f /root/calico.yaml
-# systemctl restart kubelet
+# # CALICO Cluster Pod Network
+# #curl -o /root/calico.yaml https://raw.githubusercontent.com/projectcalico/calico/v3.27.2/manifests/tigera-operator.yaml
+# curl -O https://raw.githubusercontent.com/projectcalico/calico/master/manifests/calico.yaml
+# #curl https://projectcalico.docs.tigera.io/manifests/calico.yaml -O
 
+# kubectl apply -f calico.yaml
+
+# kubectl set env daemonset/calico-node -n kube-system IP_AUTODETECTION_METHOD=interface=eth0
+
+# # # apply CAlico Canal
+curl https://calico-v3-25.netlify.app/archive/v3.25/manifests/canal.yaml -O
+
+kubectl apply -f canal.yaml
+
+kubectl --kubeconfig /root/.kube/config apply -f /root/calico.yaml
+
+systemctl restart kubelet
+
+# AWS has its own amazon-vpc-cni-k8s!!!! 
 # --------------------------------------------------------------------------------------
 # Configure kubectl to connect to the cluster.
 # Add kube config to ubuntu user.
@@ -218,3 +231,8 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/cont
 #kubectl get services ingress-nginx-controller --namespace=ingress-nginx
 kubectl delete -A ValidatingWebhookConfiguration ingress-nginx-admission
 #kubectl apply -f k8s/nginx.yaml
+
+# Deploy Nginx with Service and Ingress
+sleep 1
+aws s3 cp s3://${s3_bucket_name}/nginx.yaml nginx.yaml
+k apply -f nginx.yaml

@@ -5,7 +5,7 @@ resource "aws_vpc" "kube_vpc" {
   enable_dns_hostnames = true 
   tags = {
     Name = "K8S VPC"
-    #"kubernetes.io/cluster/kubernetes" = "${var.cluster_name}"
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
   }
 }
 
@@ -21,7 +21,8 @@ resource "aws_subnet" "kube_public_subnet" {
 
   tags = {
     Name = "K8S Subnet"
-  #   key   = "kubernetes.io/cluster/${var.cluster_name}"
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+    "kubernetes.io/role/elb"=1
   }
 }
 
@@ -30,7 +31,7 @@ resource "aws_internet_gateway" "kube_internet_gateway" {
 
   tags = {
     Name = "K8S Internet Gateway"
- #   key   = "kubernetes.io/cluster/${var.cluster_name}"
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
   }
 }
 
@@ -48,8 +49,8 @@ resource "aws_route_table" "public_route_table" {
   }
 
   tags = {
- #   Name = "Public Route Table"
-    key   = "kubernetes.io/cluster/${var.cluster_name}"
+    Name = "Public Route Table"
+   "kubernetes.io/cluster/${var.cluster_name}" = "shared"
   }
 }
 

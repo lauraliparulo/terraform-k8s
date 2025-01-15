@@ -121,7 +121,7 @@ module "nlb" {
       protocol    = "TCP"
       port        = 80
       target_type = "ip"
-      target_id   = "10.0.1.12"
+      target_id   = "10.0.1.40"
     }
   }
 

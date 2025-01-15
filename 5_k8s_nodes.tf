@@ -13,7 +13,7 @@ resource "aws_instance" "ec2_instance_master" {
   }
   tags = {
     Name = "k8s_master_1"
- #   key   = "kubernetes.io/cluster/${var.cluster_name}"
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
   }
   user_data_base64 = base64encode("${templatefile("scripts/install_k8s_master.sh", {
     access_key = "${var.access_key}"
@@ -43,8 +43,8 @@ resource "aws_instance" "ec2_instance_worker" {
       delete_on_termination = true
     }
     tags = {
-        Name = "k8s_worker_${count.index + 1}"
-  #      key   = "kubernetes.io/cluster/${var.cluster_name}"
+      Name = "k8s_worker_${count.index + 1}"
+      "kubernetes.io/cluster/${var.cluster_name}" = "shared"
     }
     user_data_base64 = base64encode("${templatefile("scripts/install_k8s_worker.sh", {
 

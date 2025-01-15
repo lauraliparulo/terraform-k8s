@@ -111,3 +111,6 @@ sleep 2m
 aws s3 cp s3://${s3_bucket_name}/join_command.sh /tmp/.
 chmod +x /tmp/join_command.sh
 bash /tmp/join_command.sh
+
+# Label worker node
+# kubectl label node  <host-name>  node-role.kubernetes.io/worker=wo
