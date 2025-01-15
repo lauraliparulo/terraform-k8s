@@ -18,6 +18,12 @@ output "instance_master_instance_id" {
 #   value       = aws_instance.ec2_instance_master.private_ip
 # }
 
+
+output "vpc_id" {
+  description = "The vpc_1"
+  value       = aws_vpc.kube_vpc.id
+}
+
 output "s3_bucket_name" {
   description = "The S3 bucket name"
   value       = "k8s-${random_string.s3name.result}"

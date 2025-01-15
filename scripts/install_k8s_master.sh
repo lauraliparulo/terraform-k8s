@@ -30,7 +30,7 @@ echo \
 
 # you can either install docker completely or just a runtime like CRI-O or containerd (bundled with docker)
 apt update
-apt install docker.io -y
+apt install -y containerd.io
 
 # Configure containerd to use systemd as the cgroup driver to use systemd cgroups.
 mkdir -p /etc/containerd
@@ -63,7 +63,6 @@ systemctl enable containerd
 # verify containerd is running
 systemctl status containerd
 
-
 ## ------------------------------------ INSTALL Kubernetes tools ---------------------------------------------
 # - kubeadm  - to bootstrap the cluster
 # - kubelet  - to manage kubernetes objects on the machine
@@ -91,8 +90,12 @@ mount -a
 ufw disable
 
 # ----------------------
+# initialize the master node
 # enable kubelet
 systemctl enable --now kubelet
+
+kubeadm config images pull --cri-socket unix:///run/containerd/containerd.sock
+
 
 #next line is getting EC2 instance IP, for kubeadm to initiate cluster
 #we need to get EC2 internal IP address- default ENI is eth0
@@ -124,9 +127,8 @@ bash get_helm.sh
 #You can replace 172.16.0.0/16 with your desired pod networ
 # apiserver-advertise-address - the IP address on which the API server is listening
 # pod-network-cidr - sets the CIDR used fo the pod network
-# 
+
 kubeadm init --apiserver-advertise-address=$ipaddr --pod-network-cidr=192.168.0.0/16 --apiserver-cert-extra-sans=$pubip > /tmp/result.out
-# kubeadm init --apiserver-advertise-address=$ipaddr --apiserver-cert-extra-sans=$pubip > /tmp/restult.out
 cat /tmp/result.out
 
 #this adds .kube/config for root account, run same for ubuntu user, if you need it
@@ -146,17 +148,16 @@ export KUBECONFIG=/etc/kubernetes/admin.conf
 #--------------------------------------------------------------------------------------------------------------------------
 # FLANNEL
 # Setup flannel
-kubectl create ns kube-flannel
-kubectl create --kubeconfig /root/.kube/config ns kube-flannel
-kubectl label --overwrite ns kube-flannel pod-security.kubernetes.io/enforce=privileged
-helm repo add flannel https://flannel-io.github.io/flannel/
-helm install flannel --set podCidr="192.168.0.0/16" --namespace kube-flannel flannel/flannel
+# kubectl create ns kube-flannel
+# kubectl create --kubeconfig /root/.kube/config ns kube-flannel
+# kubectl label --overwrite ns kube-flannel pod-security.kubernetes.io/enforce=privileged
+# helm repo add flannel https://flannel-io.github.io/flannel/
+# helm install flannel --set podCidr="192.168.0.0/16" --namespace kube-flannel flannel/flannel
 
 # CALICO Cluster Pod Network
-# curl -o /root/calico.yaml https://raw.githubusercontent.com/projectcalico/calico/v3.27.2/manifests/tigera-operator.yaml
-# sleep 5
-# kubectl --kubeconfig /root/.kube/config apply -f /root/calico.yaml
-# systemctl restart kubelet
+kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+kubectl get pods --all-namespaces
+kubectl get nodes -o wide
 
 # --------------------------------------------------------------------------------------
 # Configure kubectl to connect to the cluster.
@@ -209,3 +210,33 @@ aws s3 cp /tmp/join_command.sh s3://${s3_bucket_name};
 
 # print the join command
 #kubeadm token create --print-join-command
+
+
+
+# Install ALB Ingress controller
+
+# install ALB ingress controller
+curl -O https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/main/docs/install/iam_policy.json
+
+IAM_CREATE_POLICY_ARN=$(aws iam create-policy --policy-name ALBIngressControllerIAMPolicy --policy-document file://iam_policy.json --output text --query Policy.Arn)
+
+echo $IAM_CREATE_POLICY_ARN
+
+aws iam attach-role-policy --policy-arn $IAM_CREATE_POLICY_ARN --role-name ssm_ec2_role
+
+#Install cert-manager so that you can inject the certificate configuration into the webhooks. Use Kubernetes 1.16 or later to run the following command:
+#https://artifacthub.io/packages/helm/cert-manager/cert-manager
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.16.2/cert-manager.crds.yaml
+helm repo add jetstack https://charts.jetstack.io --force-update
+kubectl create namespace cert-manager
+# helm install cert-manager --namespace cert-manager --version v1.16.2 jetstack/cert-manager
+kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.16.2/cert-manager.yaml
+
+helm repo add eks https://aws.github.io/eks-charts
+kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller/crds?ref=master"
+helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=kubernetes-admin@kubernetes --set region=eu-north1 --set vpcId=${vpc_id}
+#helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=kubernetes-admin@kubernetes
+
+#kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o alb-ingress[a-zA-Z0-9-]+)
+kubectl -n kube-system describe deployment/aws-load-balancer-controller
+kubectl -n kube-system describe endpoints/aws-load-balancer-webhook-service

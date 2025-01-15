@@ -17,19 +17,30 @@ resource "aws_vpc" "kube_vpc" {
 
 resource "random_shuffle" "az" {
   input        = ["${var.region}a", "${var.region}b", "${var.region}c"]
-  result_count = 1
+  result_count = 2
 }
 
-resource "aws_subnet" "kube_public_subnet" {
+resource "aws_subnet" "kube_public_subnet1" {
   vpc_id            = aws_vpc.kube_vpc.id
   cidr_block        = "10.0.1.0/24"
   availability_zone = random_shuffle.az.result[0]
 
   tags = {
     Name = "K8S Subnet"
+    Role = "elb"
   }
 }
 
+resource "aws_subnet" "kube_public_subnet2" {
+  vpc_id            = aws_vpc.kube_vpc.id
+  cidr_block        = "10.0.2.0/24"
+  availability_zone = random_shuffle.az.result[1]
+
+  tags = {
+    Name = "K8S Subnet"
+    Role = "elb"
+  }
+}
 resource "aws_internet_gateway" "kube_internet_gateway" {
   vpc_id = aws_vpc.kube_vpc.id
 
@@ -56,8 +67,13 @@ resource "aws_route_table" "public_route_table" {
   }
 }
 
-resource "aws_route_table_association" "public_route_table_association" {
-  subnet_id      = aws_subnet.kube_public_subnet.id
+resource "aws_route_table_association" "public_route_table_association1" {
+  subnet_id      = aws_subnet.kube_public_subnet1.id
+  route_table_id = aws_route_table.public_route_table.id
+}
+
+resource "aws_route_table_association" "public_route_table_association2" {
+  subnet_id      = aws_subnet.kube_public_subnet2.id
   route_table_id = aws_route_table.public_route_table.id
 }
 
@@ -112,14 +128,82 @@ resource "aws_security_group" "kube_security_group" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
+  ingress {
+      protocol                      = "tcp"
+      from_port                     = 9443
+      to_port                       = 9443
+      cidr_blocks = ["0.0.0.0/0"]
+      description                   = "Allow access from control plane to webhook port of AWS load balancer controller"
+  }
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = -1
     cidr_blocks = ["0.0.0.0/0"]
   }
+
 }
+
+resource "aws_security_group_rule" "webhook_admission_inbound" {
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.kube_security_group.id
+  cidr_blocks = ["0.0.0.0/0"]
+#  source_security_group_id = module.eks.cluster_primary_security_group_id
+}
+
+resource "aws_security_group_rule" "webhook_admission_outbound" {
+  type                     = "egress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.kube_security_group.id
+  cidr_blocks = ["0.0.0.0/0"]
+}
+
+# # AWS Load balancer 
+
+resource "aws_lb" "external-alb" {
+  name = "External-LB"
+  internal = false
+  load_balancer_type = "application"
+  security_groups = [aws_security_group.kube_security_group.id]
+  subnets = [aws_subnet.kube_public_subnet1.id, aws_subnet.kube_public_subnet2.id]
+}
+resource "aws_lb_target_group" "target_elb" {
+  name = "ALB-TG"
+  port = 80
+  protocol = "HTTP"
+  vpc_id= aws_vpc.kube_vpc.id
+  health_check {
+    path = "/Health"
+    port = 80
+    protocol = "HTTP"
+  }
+}
+resource "aws_lb_target_group_attachment" "master_alb" { 
+  target_group_arn = aws_lb_target_group.target_elb.arn
+  target_id = aws_instance.ec2_instance_master.id
+  port = 80
+  depends_on = [
+    aws_lb_target_group.target_elb,
+    aws_instance.ec2_instance_master,
+  ]
+}
+
+resource "aws_lb_listener" "listener_elb" {
+  load_balancer_arn = aws_lb.external-alb.arn
+  port = 80
+  protocol = "HTTP"
+  default_action {
+    type = "forward"
+    target_group_arn = aws_lb_target_group.target_elb.arn
+  }
+}
+
+
 #****** VPC END ******#
 
 resource "random_string" "s3name" {
@@ -150,9 +234,21 @@ resource "aws_s3_bucket_acl" "s3_bucket_acl" {
   depends_on = [aws_s3_bucket_ownership_controls.s3_bucket_acl_ownership]
 }
 
-resource "null_resource" "update_nginx_manifest_file_to_s3" {
+resource "null_resource" "update_nginx_namespace_manifest_to_s3" {
     provisioner "local-exec" {
-        command     = "aws s3 cp nginx.yaml s3://${aws_s3_bucket.s3_kube_bucket.id}"
+        command     = "aws s3 cp k8s/nginx_namespace.yaml s3://${aws_s3_bucket.s3_kube_bucket.id}"
+    }
+}
+
+resource "null_resource" "update_nginx_deployment_manifest_to_s3" {
+    provisioner "local-exec" {
+        command     = "aws s3 cp k8s/nginx_deployment.yaml s3://${aws_s3_bucket.s3_kube_bucket.id}"
+    }
+}
+
+resource "null_resource" "update_nginx_service_manifest_to_s3" {
+    provisioner "local-exec" {
+        command     = "aws s3 cp k8s/nginx_service.yaml s3://${aws_s3_bucket.s3_kube_bucket.id}"
     }
 }
 
@@ -171,6 +267,11 @@ resource "aws_iam_role_policy_attachment" "ssm_role_attachment2" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMFullAccess"
 }
 
+resource "aws_iam_role_policy_attachment" "ssm_role_attachment3" {
+  role       = aws_iam_role.ssm_ec2_role1.name
+  policy_arn = "arn:aws:iam::aws:policy/IAMFullAccess"
+}
+
 resource "aws_iam_instance_profile" "ssm_ec2_role_profile" {
   name = "ssm_ec2"
   role = aws_iam_role.ssm_ec2_role1.name
@@ -178,7 +279,7 @@ resource "aws_iam_instance_profile" "ssm_ec2_role_profile" {
 
 resource "aws_instance" "ec2_instance_master" {
   ami = var.ami_id
-  subnet_id = aws_subnet.kube_public_subnet.id
+  subnet_id = aws_subnet.kube_public_subnet1.id
   instance_type = var.instance_type
   key_name = var.ami_key_pair_name
   associate_public_ip_address = true
@@ -197,6 +298,7 @@ resource "aws_instance" "ec2_instance_master" {
     secret_key = "${var.secret_key}"
     region = "${var.region}"
     s3_bucket_name = "${aws_s3_bucket.s3_kube_bucket.id}"
+    vpc_id = "${aws_vpc.kube_vpc.id}"
   })}")
 
   depends_on = [
@@ -209,7 +311,7 @@ resource "aws_instance" "ec2_instance_master" {
 resource "aws_instance" "ec2_instance_worker" {
     ami = var.ami_id
     count = var.number_of_worker
-    subnet_id = aws_subnet.kube_public_subnet.id
+    subnet_id = aws_subnet.kube_public_subnet2.id
     instance_type = var.instance_type
     key_name = var.ami_key_pair_name
     associate_public_ip_address = true

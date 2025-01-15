@@ -7,7 +7,7 @@ spinner=(
 ""Waiting for the EC2 Instances K8s cluster setup ....."
 )
 
-max=$((SECONDS + 300))
+max=$((SECONDS + 180))
 
 while [[ ${SECONDS} -le ${max} ]]
 do

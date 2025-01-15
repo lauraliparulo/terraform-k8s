@@ -7,6 +7,7 @@ Inspired by
 - https://pswalia2u.medium.com/deploying-kubernetes-cluster-2ef2fbdd233a#:~:text=overlay%20%E2%80%94%20The%20overlay%20module%20provides,for%20Kubernetes%20networking%20and%20policy.
 - https://daily.dev/blog/kubernetes-cni-comparison-flannel-vs-calico-vs-canal
 - https://github.com/sandervanvugt/cka/blob/master/setup-container.sh
+- https://mrmaheshrajput.medium.com/deploy-kubernetes-cluster-on-aws-ec2-instances-f3eeca9e95f1
 
 
 ## Create an RSA key pair
@@ -44,5 +45,35 @@ Or try Calico! Or Weave!
 https://docs.aws.amazon.com/systems-manager/latest/userguide/install-plugin-debian-and-ubuntu.html
 
 
+# CHECK ALB
+https://aws.amazon.com/de/blogs/opensource/kubernetes-ingress-aws-alb-ingress-controller/
+
  
-check logs /var/log/amazon/ssm/amazon-ssm-agent.log
+sudo less /var/log/amazon/ssm/amazon-ssm-agent.log
+
+
+cluster_ip=$(kubectl get svc foo-service -ojsonpath='{.spec.clusterIP}')
+echo $cluster_ip
+
+# --------------
+type load balancer - it will ask the cloud provider to create a load balancer for your service where the the load balancer is availablein the public subnet
+
+ALB will be created for you from AWS - AWS will charge for each LOad Balancer created! And you don't have much control (in terms of security)
+
+Ingress is an alternative to this! Ingress solves the exact problem
+
+- Ingress resource on K8s
+- Ingress Controller - Nginx Controller
+- Load Balancer  (not very flexible) - so we use a declarative Ignress resource yaml 
+
+We deploy the ignress controller which reads the Ingress resource and creates the LB according to the configuration
+
+1) deploy ingress controller
+2) deploy ingress resource
+3) a load blaancer will be created
+
+
+
+# 
+Follow this tutorial - get it done!!!
+https://www.youtube.com/watch?v=kf3UjITS91M
