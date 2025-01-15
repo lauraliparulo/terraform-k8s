@@ -1,5 +1,5 @@
 #terraform apply -auto-approve -var-file="variables_aws.tfvars"
-./spinner.sh
+./scripts/spinner.sh
 #aws ec2-instance-connect ssh --instance-id i-08f0a131af2b4e33d
 #./run_on_ec2.sh -i i-ec2_instance_master -r eu-north-1 "netstat -tuln | awk \'{print \$4}\'"
 

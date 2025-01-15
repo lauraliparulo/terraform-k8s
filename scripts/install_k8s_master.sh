@@ -209,3 +209,12 @@ aws s3 cp /tmp/join_command.sh s3://${s3_bucket_name};
 
 # print the join command
 #kubeadm token create --print-join-command
+
+#install ingress controller
+
+# install NLB - ALB
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.0/deploy/static/provider/aws/deploy.yaml
+#validate
+#kubectl get services ingress-nginx-controller --namespace=ingress-nginx
+kubectl delete -A ValidatingWebhookConfiguration ingress-nginx-admission
+#kubectl apply -f k8s/nginx.yaml

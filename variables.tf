@@ -29,3 +29,7 @@ variable "ami_id" {
 variable "instance_type" {
         default = "t2.medium" #the best type to start k8s with it,
 }
+
+variable "cluster_name" {
+        default = "kubernetes-admin@kubernetes" #the best type to start k8s with it,
+}
